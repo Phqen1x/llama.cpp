@@ -211,6 +211,7 @@ jobs:
 
   windows-cpu:
     runs-on: windows-2025
+    continue-on-error: true
 
     strategy:
       matrix:
@@ -490,6 +491,10 @@ jobs:
           echo "Adding CPU backend files to existing zips..."
           for arch in x64; do
             cpu_zip="artifact/llama-bin-win-cpu-${arch}.zip"
+            if [ ! -f "$cpu_zip" ]; then
+              echo "Warning: CPU zip for $arch not found (windows-cpu job may have failed), skipping CPU backend merge"
+              continue
+            fi
             temp_dir=$(mktemp -d)
             echo "Extracting CPU backend for $arch..."
             unzip "$cpu_zip" -d "$temp_dir"
