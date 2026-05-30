@@ -188,19 +188,24 @@ jobs:
       - name: Bundle CUDA runtime libraries
         run: |
           cuda_lib=/usr/local/cuda/lib64
-          cp -v ${cuda_lib}/libcublas.so*   build/bin/ 2>/dev/null || true
-          cp -v ${cuda_lib}/libcublasLt.so* build/bin/ 2>/dev/null || true
-          cp -v ${cuda_lib}/libcurand.so*   build/bin/ 2>/dev/null || true
+          cp -av ${cuda_lib}/libcudart.so*   build/bin/
+          cp -av ${cuda_lib}/libcublas.so*   build/bin/ 2>/dev/null || true
+          cp -av ${cuda_lib}/libcublasLt.so* build/bin/ 2>/dev/null || true
+          cp -av ${cuda_lib}/libcurand.so*   build/bin/ 2>/dev/null || true
 
       - name: Set RPATH for portable distribution
         run: |
           for f in build/bin/*.so* build/bin/llama-*; do
-            [ -f "$f" ] && ! [ -L "$f" ] && patchelf --set-rpath '$ORIGIN' "$f" 2>/dev/null || true
+            [ -f "$f" ] && ! [ -L "$f" ] || continue
+            if file "$f" | grep -q 'ELF'; then
+              patchelf --set-rpath '$ORIGIN' "$f"
+            fi
           done
 
       - name: Pack artifacts
         id: pack_artifacts
         run: |
+          cp LICENSE ./build/bin/
           tar -cJf llama-ubuntu-cuda-${{ matrix.sm }}-x64.tar.xz -C ./build/bin .
 
       - name: Upload artifacts
@@ -528,18 +533,22 @@ jobs:
             mv "$tar_file" "release/$tar_name"
           done
 
-          echo "Moving CUDA tar.xz artifacts to release (filename used as-is by lemonade)..."
+          echo "Renaming and moving CUDA tar.xz artifacts to release..."
           for tar_file in artifact/llama-ubuntu-cuda-*.tar.xz; do
             [ -f "$tar_file" ] || continue
-            echo "Moving $tar_file"
-            mv "$tar_file" "release/$(basename "$tar_file")"
+            base_name=$(basename "$tar_file" .tar.xz)
+            tar_name="llama-${{ steps.tag.outputs.name }}-${base_name#llama-}.tar.xz"
+            echo "Moving $tar_file to release/$tar_name"
+            mv "$tar_file" "release/$tar_name"
           done
 
-          echo "Moving CUDA .7z artifacts to release (filename used as-is by lemonade)..."
+          echo "Renaming and moving CUDA .7z artifacts to release..."
           for z_file in artifact/llama-windows-cuda-*.7z; do
             [ -f "$z_file" ] || continue
-            echo "Moving $z_file"
-            mv "$z_file" "release/$(basename "$z_file")"
+            base_name=$(basename "$z_file" .7z)
+            z_name="llama-${{ steps.tag.outputs.name }}-${base_name#llama-}.7z"
+            echo "Moving $z_file to release/$z_name"
+            mv "$z_file" "release/$z_name"
           done
 
       - name: Determine release summary
@@ -581,12 +590,12 @@ jobs:
             </details>
 
             **Linux:**
-            - [Ubuntu x64 (ROCm 7.13)](https://github.com/Phqen1x/llama.cpp/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-rocm-7.13-x64.tar.gz)
-            - Ubuntu x64 (CUDA): `llama-ubuntu-cuda-sm_XX-x64.tar.xz` (replace XX with your GPU compute capability)
+            - [Ubuntu x64 (ROCm 7.13)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-ubuntu-rocm-7.13-x64.tar.gz)
+            - Ubuntu x64 (CUDA): `llama-${{ steps.tag.outputs.name }}-ubuntu-cuda-sm_XX-x64.tar.xz` (replace XX with your GPU compute capability)
 
             **Windows:**
-            - [Windows x64 (ROCm 7.13)](https://github.com/Phqen1x/llama.cpp/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-win-rocm-7.13-x64.zip)
-            - Windows x64 (CUDA): `llama-windows-cuda-sm_XX-x64.7z` (replace XX with your GPU compute capability)
+            - [Windows x64 (ROCm 7.13)](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/llama-${{ steps.tag.outputs.name }}-bin-win-rocm-7.13-x64.zip)
+            - Windows x64 (CUDA): `llama-${{ steps.tag.outputs.name }}-windows-cuda-sm_XX-x64.7z` (replace XX with your GPU compute capability)
 
       - name: Upload release
         id: upload_release
