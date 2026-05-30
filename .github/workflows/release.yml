@@ -444,6 +444,10 @@ jobs:
 
       - name: Pack artifacts
         run: |
+          $cudaBin = Join-Path $env:CUDA_PATH 'bin'
+          Copy-Item (Join-Path $cudaBin 'cudart64_12.dll') .\build\bin\Release\
+          Copy-Item (Join-Path $cudaBin 'cublas64_12.dll') .\build\bin\Release\
+          Copy-Item (Join-Path $cudaBin 'cublasLt64_12.dll') .\build\bin\Release\
           7z a -snl llama-windows-cuda-${{ matrix.sm }}-x64.7z .\build\bin\Release\*
 
       - name: Upload artifacts
