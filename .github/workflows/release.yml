@@ -189,9 +189,9 @@ jobs:
         run: |
           cuda_lib=/usr/local/cuda/lib64
           cp -av ${cuda_lib}/libcudart.so*   build/bin/
-          cp -av ${cuda_lib}/libcublas.so*   build/bin/ 2>/dev/null || true
-          cp -av ${cuda_lib}/libcublasLt.so* build/bin/ 2>/dev/null || true
-          cp -av ${cuda_lib}/libcurand.so*   build/bin/ 2>/dev/null || true
+          cp -av ${cuda_lib}/libcublas.so*   build/bin/
+          cp -av ${cuda_lib}/libcublasLt.so* build/bin/
+          cp -av ${cuda_lib}/libcurand.so*   build/bin/
 
       - name: Set RPATH for portable distribution
         run: |
