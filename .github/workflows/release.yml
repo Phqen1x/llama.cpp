@@ -216,7 +216,6 @@ jobs:
 
   windows-cpu:
     runs-on: windows-2025
-    continue-on-error: true
 
     strategy:
       matrix:
