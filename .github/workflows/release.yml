@@ -491,18 +491,6 @@ jobs:
             ${{ env.CMAKE_ARGS }}
           cmake --build build --config Release
 
-      - name: Verify CUDA backend was built
-        run: |
-          $cudaDll = Get-ChildItem -Path build\bin\Release -Filter "ggml-cuda*.dll" -ErrorAction SilentlyContinue
-          if (-not $cudaDll) {
-            Write-Host "##[error]ggml-cuda*.dll was NOT produced. The CUDA backend silently failed to build."
-            Write-Host "Contents of build\bin\Release:"
-            Get-ChildItem build\bin\Release | Format-Table -AutoSize
-            exit 1
-          }
-          Write-Host "CUDA backend artifact found:"
-          $cudaDll | Format-Table FullName, Length -AutoSize
-
       - name: Download CPU backend artifact
         uses: actions/download-artifact@v7
         with:
@@ -541,6 +529,48 @@ jobs:
             Copy-Item $dll.FullName $releaseDir
           }
           Copy-Item LICENSE $releaseDir
+
+          $cudaDll = Get-ChildItem -Path $releaseDir -Filter "ggml-cuda*.dll" -ErrorAction SilentlyContinue
+          if (-not $cudaDll) {
+            Write-Host "##[error]ggml-cuda*.dll was NOT produced in the final package layout."
+            Write-Host "Contents of $releaseDir:"
+            Get-ChildItem $releaseDir | Format-Table -AutoSize
+            exit 1
+          }
+
+          foreach ($pattern in $runtimeDllPatterns) {
+            $dll = Get-ChildItem -Path $releaseDir -Filter $pattern | Select-Object -First 1
+            if (-not $dll) {
+              throw "Missing staged CUDA runtime DLL matching $pattern in $releaseDir"
+            }
+          }
+
+          $smokeExe = $null
+          foreach ($name in @('llama-cli.exe', 'llama-server.exe')) {
+            $candidate = Get-ChildItem -Path $releaseDir -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($candidate) {
+              $smokeExe = $candidate
+              break
+            }
+          }
+          if (-not $smokeExe) {
+            $smokeExe = Get-ChildItem -Path $releaseDir -Filter 'llama-*.exe' -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -First 1
+          }
+          if (-not $smokeExe) {
+            throw "No llama executable found for staged Windows CUDA smoke test"
+          }
+
+          Push-Location $releaseDir
+          try {
+            & ".\$($smokeExe.Name)" --version | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw "Smoke test failed for $($smokeExe.Name) with exit code $LASTEXITCODE"
+            }
+          }
+          finally {
+            Pop-Location
+          }
+
           7z a -snl llama-windows-cuda-${{ matrix.sm }}-x64.7z "$releaseDir\\*"
 
       - name: Upload artifacts
